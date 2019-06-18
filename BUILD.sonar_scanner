@@ -1,0 +1,16 @@
+java_import(
+    name = "_sonar_scanner_lib",
+    jars = glob(["lib/**/*.jar"]),
+    licenses = ["restricted"],
+)
+
+java_binary(
+    name = "sonar_scanner",
+    jvm_flags = [
+        "-Djava.awt.headless=true",
+    ],
+    licenses = ["restricted"],
+    main_class = "org.sonarsource.scanner.cli.Main",
+    visibility = ["//visibility:public"],
+    runtime_deps = [":_sonar_scanner_lib"],
+)
