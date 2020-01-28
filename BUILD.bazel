@@ -20,6 +20,7 @@ genrule(
     executable = 1,
     tools = [":SonarQubeCoverageGenerator"],
     visibility = ["//visibility:public"],
+	tags = ["no-cache"], # successful execution even when --remote_cache is involved
 )
 
 alias(
