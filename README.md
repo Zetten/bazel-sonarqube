@@ -2,6 +2,14 @@
 
 Utilities to help analyse Bazel projects with SonarQube.
 
+The included rules require some dependencies. In your WORKSPACE:
+
+```python
+load("@bazel_sonarqube//:repositories.bzl", "bazel_sonarqube_repositories")
+
+bazel_sonarqube_repositories()
+```
+
 ## Coverage
 
 To aggregate and convert Bazel coverage into SQ's generic coverage XML format:
@@ -27,14 +35,6 @@ sonar-project.properties configuration files, and execute the CLI scanner.
 The `sq_project` rule provides the generation of sonar-project.properties
 configuration, and can be used to create sub-module configurations to be
 included in a `sonarqube` target.
-
-The included Sonar Scanner rule requires importing in your WORKSPACE:
-
-```python
-load("@bazel_sonarqube//:repositories.bzl", "bazel_sonarqube_repositories")
-
-bazel_sonarqube_repositories()
-```
 
 The `sonarqube` rule can then be instantiated:
 
