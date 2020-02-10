@@ -1,16 +1,8 @@
 exports_files(["sonar-project.properties.tpl"])
 
-java_binary(
-    name = "SonarQubeCoverageGenerator",
-    srcs = [
-        "src/main/java/com/google/devtools/coverageoutputgenerator/SonarQubeCoverageGenerator.java",
-        "src/main/java/com/google/devtools/coverageoutputgenerator/SonarQubeCoverageReportPrinter.java",
-    ],
-    main_class = "com.google.devtools.coverageoutputgenerator.SonarQubeCoverageGenerator",
-    deps = [
-        "@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:all_lcov_merger_lib",
-    ],
-)
+load("//:defs.bzl", "sonarqube_coverage_generator_binary")
+
+sonarqube_coverage_generator_binary()
 
 # This re-exports the java_binary, to ensure it gets built with runfiles for the host configuration
 genrule(
@@ -18,9 +10,9 @@ genrule(
     outs = ["coverage.launcher"],
     cmd = "ln -snf $$(readlink $(location :SonarQubeCoverageGenerator)) $@",
     executable = 1,
+    tags = ["no-cache"],  # successful execution even when --remote_cache is involved
     tools = [":SonarQubeCoverageGenerator"],
     visibility = ["//visibility:public"],
-	tags = ["no-cache"], # successful execution even when --remote_cache is involved
 )
 
 alias(
