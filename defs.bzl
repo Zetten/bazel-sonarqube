@@ -21,7 +21,12 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
     module_path = ctx.build_file_path.replace("BUILD", "")
     depth = len(module_path.split("/")) - 1
     parent_path = "../" * depth
-    coverage_report_path = (parent_path + ctx.file.coverage_report.short_path) if hasattr(ctx.file, "coverage_report") else ""
+    if hasattr(ctx.attr, "coverage_report") and ctx.attr.coverage_report:
+        coverage_report_path = parent_path + ctx.file.coverage_report.short_path
+        coverage_runfiles = [ctx.file.coverage_report]
+    else:
+        coverage_report_path = ""
+        coverage_runfiles = []
 
     java_files = _get_java_files([t for t in ctx.attr.targets if t[JavaInfo]])
 
@@ -42,7 +47,7 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
     )
 
     return ctx.runfiles(
-        files = [sq_properties_file] + ctx.files.srcs + ([ctx.file.coverage_report] if hasattr(ctx.file, "coverage_report") else []),
+        files = [sq_properties_file] + ctx.files.srcs + coverage_runfiles,
         transitive_files = depset(transitive = [java_files["output_jars"], java_files["deps_jars"]]),
     )
 
@@ -114,6 +119,7 @@ _sonarqube = rule(
     attrs = dict(_COMMON_ATTRS, **{
         "coverage_report": attr.label(
             allow_single_file = True,
+            mandatory = false,
             doc = """Coverage file in SonarQube generic coverage report format.""",
         ),
         "scm_info": attr.label_list(
