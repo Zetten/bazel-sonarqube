@@ -119,7 +119,7 @@ _sonarqube = rule(
     attrs = dict(_COMMON_ATTRS, **{
         "coverage_report": attr.label(
             allow_single_file = True,
-            mandatory = false,
+            mandatory = False,
             doc = """Coverage file in SonarQube generic coverage report format.""",
         ),
         "scm_info": attr.label_list(
