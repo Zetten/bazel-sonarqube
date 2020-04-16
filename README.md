@@ -112,3 +112,7 @@ Analysis can then be executed:
 bazel run //:sq -- -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.login=${SONAR_AUTH_TOKEN}
 ```
 
+Note that during analysis, the `sonarqube` executable target will dereference
+its runfiles symlinks. This is necessary so the SCM info correctly resolves,
+allowing SonarQube to track new code and line ownership data.
+
