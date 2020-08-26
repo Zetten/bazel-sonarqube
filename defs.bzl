@@ -21,6 +21,30 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
     module_path = ctx.build_file_path.replace("BUILD", "")
     depth = len(module_path.split("/")) - 1
     parent_path = "../" * depth
+
+    # SonarQube requires test reports to be named like TEST-foo.xml, so we step
+    # through `test_targets` to find the matching `test_reports` values, and
+    # symlink them to the usable name
+
+    if hasattr(ctx.attr, "test_targets") and ctx.attr.test_targets and hasattr(ctx.attr, "test_reports") and ctx.attr.test_reports:
+        test_reports_path = module_path + "test-reports"
+        test_reports_runfiles = []
+
+        for t in ctx.attr.test_targets:
+            test_target = ctx.label.relative(t)
+            sq_test_report = ctx.actions.declare_file("%s/TEST-%s.xml" % (test_reports_path, test_target.name))
+            bazel_test_report_path = "bazel-testlogs/" + test_target.package + "/" + test_target.name + "/test.xml"
+            bazel_test_report = [t for t in ctx.files.test_reports if t.short_path == bazel_test_report_path][0] or fail("Expected Bazel test report for %s with path %s" % (test_target, bazel_test_report_path))
+
+            ctx.actions.symlink(
+                output = sq_test_report,
+                target_file = bazel_test_report,
+            )
+            test_reports_runfiles.append(sq_test_report)
+    else:
+        test_reports_path = ""
+        test_reports_runfiles = []
+
     if hasattr(ctx.attr, "coverage_report") and ctx.attr.coverage_report:
         coverage_report_path = parent_path + ctx.file.coverage_report.short_path
         coverage_runfiles = [ctx.file.coverage_report]
@@ -37,17 +61,19 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
             "{PROJECT_KEY}": ctx.attr.project_key,
             "{PROJECT_NAME}": ctx.attr.project_name,
             "{SOURCES}": ",".join([parent_path + f.short_path for f in ctx.files.srcs]),
+            "{TEST_SOURCES}": ",".join([parent_path + f.short_path for f in ctx.files.test_srcs]),
             "{SOURCE_ENCODING}": ctx.attr.source_encoding,
             "{JAVA_BINARIES}": ",".join([parent_path + j.short_path for j in java_files["output_jars"].to_list()]),
             "{JAVA_LIBRARIES}": ",".join([parent_path + j.short_path for j in java_files["deps_jars"].to_list()]),
             "{MODULES}": ",".join(ctx.attr.modules.values()),
+            "{TEST_REPORTS}": test_reports_path,
             "{COVERAGE_REPORT}": coverage_report_path,
         },
         is_executable = False,
     )
 
     return ctx.runfiles(
-        files = [sq_properties_file] + ctx.files.srcs + coverage_runfiles,
+        files = [sq_properties_file] + ctx.files.srcs + ctx.files.test_srcs + test_reports_runfiles + coverage_runfiles,
         transitive_files = depset(transitive = [java_files["output_jars"], java_files["deps_jars"]]),
     )
 
@@ -56,6 +82,9 @@ def _get_java_files(java_targets):
         "output_jars": depset(direct = [j.class_jar for t in java_targets for j in t[JavaInfo].outputs.jars]),
         "deps_jars": depset(transitive = [t[JavaInfo].transitive_deps for t in java_targets] + [t[JavaInfo].transitive_runtime_deps for t in java_targets]),
     }
+
+def _test_report_path(parent_path, test_target):
+    return parent_path + "bazel-testlogs/" + test_target.package + "/" + test_target.name
 
 def _sonarqube_impl(ctx):
     sq_properties_file = ctx.actions.declare_file("sonar-project.properties")
@@ -110,6 +139,20 @@ _COMMON_ATTRS = dict(dict(), **{
         default = {},
         doc = """Sub-projects to associate with this SonarQube project.""",
     ),
+    "test_srcs": attr.label_list(
+        allow_files = True,
+        default = [],
+        doc = """Project test sources to be analysed by SonarQube. This must be set along with `test_reports` and `test_sources` for accurate test reporting.""",
+    ),
+    "test_targets": attr.string_list(
+        default = [],
+        doc = """A list of test targets relevant to the SQ project. This will be used with the `test_reports` attribute to generate the report paths in sonar-project.properties.""",
+    ),
+    "test_reports": attr.label_list(
+        allow_files = True,
+        default = [],
+        doc = """Junit-format execution reports, e.g. `filegroup(name = "test_reports", srcs = glob(["bazel-testlogs/**/test.xml"]))`""",
+    ),
     "sq_properties_template": attr.label(
         allow_single_file = True,
         default = "@bazel_sonarqube//:sonar-project.properties.tpl",
@@ -151,6 +194,9 @@ def sonarqube(
         srcs = [],
         source_encoding = None,
         targets = [],
+        test_srcs = [],
+        test_targets = [],
+        test_reports = [],
         modules = {},
         sonar_scanner = None,
         sq_properties_template = None,
@@ -161,11 +207,14 @@ def sonarqube(
         project_key = project_key,
         project_name = project_name,
         scm_info = scm_info,
-        coverage_report = coverage_report,
         srcs = srcs,
         source_encoding = source_encoding,
         targets = targets,
         modules = modules,
+        test_srcs = test_srcs,
+        test_targets = test_targets,
+        test_reports = test_reports,
+        coverage_report = coverage_report,
         sonar_scanner = sonar_scanner,
         sq_properties_template = sq_properties_template,
         sq_properties = "sonar-project.properties",
@@ -192,8 +241,10 @@ def sq_project(
         srcs = [],
         source_encoding = None,
         targets = [],
+        test_srcs = [],
+        test_targets = [],
+        test_reports = [],
         modules = {},
-        coverage_report = None,
         sq_properties_template = None,
         tags = [],
         visibility = []):
@@ -202,8 +253,11 @@ def sq_project(
         project_key = project_key,
         project_name = project_name,
         srcs = srcs,
+        test_srcs = test_srcs,
         source_encoding = source_encoding,
         targets = targets,
+        test_targets = test_targets,
+        test_reports = test_reports,
         modules = modules,
         sq_properties_template = sq_properties_template,
         sq_properties = "sonar-project.properties",
