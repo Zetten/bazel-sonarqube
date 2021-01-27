@@ -1,6 +1,20 @@
-exports_files(["sonar-project.properties.tpl"])
-
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("//:defs.bzl", "sonarqube_coverage_generator_binary")
+
+bzl_library(
+    name = "bzl",
+    srcs = ["defs.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@bazel_skylib//lib:versions",
+        "@bazel_version",
+    ],
+)
+
+exports_files([
+    "defs.bzl",
+    "sonar-project.properties.tpl",
+])
 
 sonarqube_coverage_generator_binary()
 

@@ -1,0 +1,3 @@
+coverage --collect_code_coverage
+coverage --combined_report=lcov
+coverage --coverage_report_generator=@bazel_sonarqube//:sonarqube_coverage_generator

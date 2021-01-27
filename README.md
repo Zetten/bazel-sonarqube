@@ -2,6 +2,12 @@
 
 Utilities to help analyse Bazel projects with SonarQube.
 
+[Generated stardoc rule documentation](./docs/bazel_sonarqube.md)
+
+[Example projects](./examples)
+
+## Setup
+
 The included rules require some dependencies. In your WORKSPACE:
 
 ```python

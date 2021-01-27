@@ -1,0 +1,12 @@
+load("@io_bazel_stardoc//stardoc:stardoc.bzl", "stardoc")
+
+stardoc(
+    name = "docs",
+    out = "bazel_sonarqube.md",
+    input = "//:defs.bzl",
+    symbol_names = [
+        "sonarqube",
+        "sq_project",
+    ],
+    deps = ["//:bzl"],
+)

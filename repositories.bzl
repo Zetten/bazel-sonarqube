@@ -4,8 +4,8 @@ def bazel_sonarqube_repositories(
         bazel_version_repository_name = "bazel_version",
         sonar_scanner_cli_version = "3.3.0.1492",
         sonar_scanner_cli_sha256 = "0fabd3fa2e10bbfc5cdf64765ff35e88e7937e48aad51d84401b9f36dbde3678",
-        bazel_skylib_version = "1.0.2",
-        bazel_skylib_sha256 = "97e70364e9249702246c0e9444bccdc4b847bed1eb03c5a3ece4f83dfe6abc44"):
+        bazel_skylib_version = "1.0.3",
+        bazel_skylib_sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c"):
     http_archive(
         name = "org_sonarsource_scanner_cli_sonar_scanner_cli",
         build_file = "@bazel_sonarqube//:BUILD.sonar_scanner",
@@ -30,14 +30,22 @@ def bazel_sonarqube_repositories(
     bazel_version_repository(name = bazel_version_repository_name)
 
 # A hacky way to work around the fact that native.bazel_version is only
-# available from WORKSPACE macros, not BUILD macros or rules.
+# available from WORKSPACE macros, not BUILD.bazel macros or rules.
 #
 # Hopefully we can remove this if/when this is fixed:
 #   https://github.com/bazelbuild/bazel/issues/8305
 def _bazel_version_repository_impl(repository_ctx):
     s = "bazel_version = \"" + native.bazel_version + "\""
     repository_ctx.file("bazel_version.bzl", s)
-    repository_ctx.file("BUILD", "")
+    repository_ctx.file("BUILD.bazel", """
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
+bzl_library(
+    name = "bazel_version",
+    srcs = ["bazel_version.bzl"],
+    visibility = ["//visibility:public"],
+)
+""")
 
 bazel_version_repository = repository_rule(
     implementation = _bazel_version_repository_impl,
