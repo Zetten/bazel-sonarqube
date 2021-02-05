@@ -22,7 +22,7 @@ def sonarqube_coverage_generator_binary(name = None):
     )
 
 def _build_sonar_project_properties(ctx, sq_properties_file):
-    module_path = ctx.build_file_path.replace("BUILD.bazel", "")
+    module_path = ctx.build_file_path.replace("/BUILD.bazel", "/").replace("/BUILD", "/")
     depth = len(module_path.split("/")) - 1
     parent_path = "../" * depth
 
@@ -34,9 +34,10 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
         test_reports_path = module_path + "test-reports"
         test_reports_runfiles = []
 
+        inc = 0
         for t in ctx.attr.test_targets:
             test_target = ctx.label.relative(t)
-            sq_test_report = ctx.actions.declare_file("%s/TEST-%s.xml" % (test_reports_path, test_target.name))
+            sq_test_report = ctx.actions.declare_file("%s/TEST-%s.xml" % (test_reports_path, inc))
             bazel_test_report_path = "bazel-testlogs/" + test_target.package + "/" + test_target.name + "/test.xml"
             bazel_test_report = [t for t in ctx.files.test_reports if t.short_path == bazel_test_report_path][0] or fail("Expected Bazel test report for %s with path %s" % (test_target, bazel_test_report_path))
 
@@ -45,6 +46,7 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
                 target_file = bazel_test_report,
             )
             test_reports_runfiles.append(sq_test_report)
+            inc += 1
     else:
         test_reports_path = ""
         test_reports_runfiles = []
