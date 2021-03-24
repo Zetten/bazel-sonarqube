@@ -30,23 +30,27 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
     # through `test_targets` to find the matching `test_reports` values, and
     # symlink them to the usable name
 
-    if hasattr(ctx.attr, "test_targets") and ctx.attr.test_targets and hasattr(ctx.attr, "test_reports") and ctx.attr.test_reports:
+    if hasattr(ctx.attr, "test_targets") and ctx.attr.test_targets and hasattr(ctx.attr, "test_reports") and ctx.attr.test_reports and ctx.files.test_reports:
         test_reports_path = module_path + "test-reports"
         test_reports_runfiles = []
 
         inc = 0
         for t in ctx.attr.test_targets:
             test_target = ctx.label.relative(t)
-            sq_test_report = ctx.actions.declare_file("%s/TEST-%s.xml" % (test_reports_path, inc))
             bazel_test_report_path = "bazel-testlogs/" + test_target.package + "/" + test_target.name + "/test.xml"
-            bazel_test_report = [t for t in ctx.files.test_reports if t.short_path == bazel_test_report_path][0] or fail("Expected Bazel test report for %s with path %s" % (test_target, bazel_test_report_path))
+            matching_test_reports = [t for t in ctx.files.test_reports if t.short_path == bazel_test_report_path]
+            if matching_test_reports:
+                bazel_test_report = matching_test_reports[0]
+                sq_test_report = ctx.actions.declare_file("%s/TEST-%s.xml" % (test_reports_path, inc))
+                ctx.actions.symlink(
+                    output = sq_test_report,
+                    target_file = bazel_test_report,
+                )
+                test_reports_runfiles.append(sq_test_report)
+                inc += 1
+            else:
+                print("Expected Bazel test report for %s with path %s" % (test_target, bazel_test_report_path))
 
-            ctx.actions.symlink(
-                output = sq_test_report,
-                target_file = bazel_test_report,
-            )
-            test_reports_runfiles.append(sq_test_report)
-            inc += 1
     else:
         test_reports_path = ""
         test_reports_runfiles = []
