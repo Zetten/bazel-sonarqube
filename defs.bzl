@@ -112,7 +112,7 @@ def _sonarqube_impl(ctx):
             "echo 'Dereferencing bazel runfiles symlinks for accurate SCM resolution...'",
             "for f in $(find $(dirname %s) -type l); do sed -i '' $f; done" % sq_properties_file.short_path,
             "echo '... done.'",
-            "exec %s -Dproject.settings=%s $@" % (ctx.executable.sonar_scanner.short_path, sq_properties_file.short_path),
+            "exec %s $@ -Dproject.settings=%s" % (ctx.executable.sonar_scanner.short_path, sq_properties_file.short_path),
         ]),
         is_executable = True,
     )
