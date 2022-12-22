@@ -6,6 +6,19 @@ Utilities to help analyse Bazel projects with SonarQube.
 
 [Example projects](./examples)
 
+## Version compatibility
+
+The SonarQubeCoverageGenerator utility is a direct copy of the equivalent lcov
+generator from Bazel upstream, and runs with Bazel's embedded
+`"@remote_coverage_tools//:all_lcov_merger_lib"` as a dependency. If using this
+to collect coverage info in SQ-compatible format, the version of this repository
+must be matched to the Bazel version being used.
+
+The list below includes the last compatible commit of this repository for
+specific Bazel versions, otherwise the latest should work with the latest Bazel.
+
+* Bazel < 6.0 - 37261de24f80b661bbc4726e3382ef43e9d66a6e
+
 ## Setup
 
 The included rules require some dependencies. In your WORKSPACE:
