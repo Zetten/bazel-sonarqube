@@ -35,4 +35,5 @@ sonarqube(
     scm_info = [":git"],
     tags = ["manual"],
     targets = [],
+    testonly = True,
 )
