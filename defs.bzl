@@ -21,6 +21,32 @@ def sonarqube_coverage_generator_binary(name = None):
         deps = deps,
     )
 
+TargetInfo = provider(
+    fields = {
+        "deps": "depset of targets",
+    }
+)
+
+def _test_targets_aspect_impl(target, ctx):
+    transitive = []
+    direct = []
+
+    if ctx.rule.kind.endswith("_test"):
+        direct.append(target)
+
+    if hasattr(ctx.rule.attr, 'tests'):
+        for dep in ctx.rule.attr.tests:
+            transitive.append(dep[TargetInfo].deps)
+
+    return TargetInfo(deps=depset(direct=direct, transitive=transitive))
+
+# This aspect is for collecting test targets from test_suite rules
+# to save some duplication in the BUILD files.
+test_targets_aspect = aspect(
+    implementation = _test_targets_aspect_impl,
+    attr_aspects = [ 'tests' ],
+)
+
 def _build_sonar_project_properties(ctx, sq_properties_file):
     module_path = ctx.build_file_path.replace("/BUILD.bazel", "/").replace("/BUILD", "/")
     depth = len(module_path.split("/")) - 1
@@ -35,21 +61,23 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
         test_reports_runfiles = []
 
         inc = 0
-        for t in ctx.attr.test_targets:
-            test_target = ctx.label.relative(t)
-            bazel_test_report_path = "bazel-testlogs/" + test_target.package + "/" + test_target.name + "/test.xml"
-            matching_test_reports = [t for t in ctx.files.test_reports if t.short_path == bazel_test_report_path]
-            if matching_test_reports:
-                bazel_test_report = matching_test_reports[0]
-                sq_test_report = ctx.actions.declare_file("%s/TEST-%s.xml" % (test_reports_path, inc))
-                ctx.actions.symlink(
-                    output = sq_test_report,
-                    target_file = bazel_test_report,
-                )
-                test_reports_runfiles.append(sq_test_report)
-                inc += 1
-            else:
-                print("Expected Bazel test report for %s with path %s" % (test_target, bazel_test_report_path))
+        for dep in ctx.attr.test_targets:
+            if TargetInfo in dep:
+                for t in dep[TargetInfo].deps.to_list():
+                    test_target = t.label
+                    bazel_test_report_path = "bazel-testlogs/" + test_target.package + "/" + test_target.name + "/test.xml"
+                    matching_test_reports = [t for t in ctx.files.test_reports if t.short_path == bazel_test_report_path]
+                    if matching_test_reports:
+                        bazel_test_report = matching_test_reports[0]
+                        sq_test_report = ctx.actions.declare_file("%s/TEST-%s.xml" % (test_reports_path, inc))
+                        ctx.actions.symlink(
+                            output = sq_test_report,
+                            target_file = bazel_test_report,
+                        )
+                        test_reports_runfiles.append(sq_test_report)
+                        inc += 1
+                    else:
+                        print("Expected Bazel test report for %s with path %s" % (test_target, bazel_test_report_path))
 
     else:
         test_reports_path = ""
@@ -121,6 +149,7 @@ def _sonarqube_impl(ctx):
         runfiles = ctx.runfiles(files = [ctx.executable.sonar_scanner] + ctx.files.scm_info).merge(ctx.attr.sonar_scanner[DefaultInfo].default_runfiles).merge(local_runfiles).merge(module_runfiles),
     )]
 
+
 _COMMON_ATTRS = dict(dict(), **{
     "project_key": attr.string(mandatory = True),
     "project_name": attr.string(),
@@ -129,7 +158,7 @@ _COMMON_ATTRS = dict(dict(), **{
     "targets": attr.label_list(default = []),
     "modules": attr.label_keyed_string_dict(default = {}),
     "test_srcs": attr.label_list(allow_files = True, default = []),
-    "test_targets": attr.string_list(default = []),
+    "test_targets": attr.label_list(default = [], aspects = [ test_targets_aspect ]),
     "test_reports": attr.label_list(allow_files = True, default = []),
     "sq_properties_template": attr.label(allow_single_file = True, default = "@bazel_sonarqube//:sonar-project.properties.tpl"),
     "sq_properties": attr.output(),
@@ -163,7 +192,8 @@ def sonarqube(
         sonar_scanner = "@bazel_sonarqube//:sonar_scanner",
         sq_properties_template = "@bazel_sonarqube//:sonar-project.properties.tpl",
         tags = [],
-        visibility = []):
+        visibility = [],
+        **kwargs):
     """A runnable rule to execute SonarQube analysis.
 
     Generates `sonar-project.properties` and invokes the SonarScanner CLI tool
@@ -230,6 +260,7 @@ def sonarqube(
         sq_properties = "sonar-project.properties",
         tags = tags,
         visibility = visibility,
+        **kwargs,
     )
 
 def _sq_project_impl(ctx):
@@ -257,7 +288,8 @@ def sq_project(
         modules = {},
         sq_properties_template = "@bazel_sonarqube//:sonar-project.properties.tpl",
         tags = [],
-        visibility = []):
+        visibility = [],
+        **kwargs):
     """A configuration rule to generate SonarQube analysis properties.
 
     Targets of this type may be referenced by the [`modules`](#sonarqube-modules)
@@ -312,4 +344,5 @@ def sq_project(
         sq_properties = "sonar-project.properties",
         tags = tags,
         visibility = visibility,
+        **kwargs,
     )

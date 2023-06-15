@@ -23,10 +23,11 @@ http_archive(
 )
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:specs.bzl", "maven")
 
 maven_install(
     artifacts = [
-        "junit:junit:4.12",
+        maven.artifact("junit", "junit", "4.12", testonly=True)
     ],
     repositories = [
         "https://jcenter.bintray.com/",

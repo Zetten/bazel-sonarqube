@@ -9,6 +9,13 @@ sq_project(
     targets = ["//subproject/src/main/java/com/example:app"],
     test_reports = ["//:test_reports"],
     test_srcs = ["//subproject/src/test/java/com/example:java_test_srcs"],
-    test_targets = ["//subproject/src/test/java/com/example:AppTest"],
+    test_targets = [
+        # can use test_suite to reference multiple tests
+        "//subproject/src/test/java/com/example:mySuite",
+
+        # or individually like before
+        "//subproject/src/test/java/com/example:AppTest3",
+    ],
     visibility = ["//visibility:public"],
+    testonly = True,
 )

@@ -110,6 +110,7 @@ sonarqube(
     coverage_report = ":coverage_report",
     scm_info = [":git"],
     tags = ["manual"],
+    testonly = True,
 )
 ```
 
@@ -144,10 +145,12 @@ sq_project(
     test_targets = [
         "//path/to/component:FirstComponentTest",
         "//path/to/component:SecondComponentTest",
+        "//path/to/component:TestSuite",
     ],
     test_reports = ["//:test_reports"],
     tags = ["manual"],
     visibility = ["//visibility:public"],
+    testonly = True,
 )
 ```
 
