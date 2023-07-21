@@ -47,10 +47,13 @@ test_targets_aspect = aspect(
     attr_aspects = [ 'tests' ],
 )
 
-def _build_sonar_project_properties(ctx, sq_properties_file):
+def _build_sonar_project_properties(ctx, sq_properties_file, rule):
     module_path = ctx.build_file_path.replace("/BUILD.bazel", "/").replace("/BUILD", "/")
     depth = len(module_path.split("/")) - 1
-    parent_path = "../" * depth
+    if rule == 'sq_project':
+        parent_path = "../" * depth
+    else:
+        parent_path = ""
 
     # SonarQube requires test reports to be named like TEST-foo.xml, so we step
     # through `test_targets` to find the matching `test_reports` values, and
@@ -58,6 +61,10 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
 
     if hasattr(ctx.attr, "test_targets") and ctx.attr.test_targets and hasattr(ctx.attr, "test_reports") and ctx.attr.test_reports and ctx.files.test_reports:
         test_reports_path = module_path + "test-reports"
+        if rule == 'sq_project':
+            local_test_reports_path = module_path + "test-reports"
+        else:
+            local_test_reports_path = "test-reports"
         test_reports_runfiles = []
 
         inc = 0
@@ -69,7 +76,7 @@ def _build_sonar_project_properties(ctx, sq_properties_file):
                     matching_test_reports = [t for t in ctx.files.test_reports if t.short_path == bazel_test_report_path]
                     if matching_test_reports:
                         bazel_test_report = matching_test_reports[0]
-                        sq_test_report = ctx.actions.declare_file("%s/TEST-%s.xml" % (test_reports_path, inc))
+                        sq_test_report = ctx.actions.declare_file("%s/TEST-%s.xml" % (local_test_reports_path, inc))
                         ctx.actions.symlink(
                             output = sq_test_report,
                             target_file = bazel_test_report,
@@ -127,7 +134,7 @@ def _test_report_path(parent_path, test_target):
 def _sonarqube_impl(ctx):
     sq_properties_file = ctx.actions.declare_file("sonar-project.properties")
 
-    local_runfiles = _build_sonar_project_properties(ctx, sq_properties_file)
+    local_runfiles = _build_sonar_project_properties(ctx, sq_properties_file, 'sonarqube')
 
     module_runfiles = ctx.runfiles(files = [])
     for module in ctx.attr.modules.keys():
@@ -264,8 +271,8 @@ def sonarqube(
     )
 
 def _sq_project_impl(ctx):
-    local_runfiles = _build_sonar_project_properties(ctx, ctx.outputs.sq_properties)
-
+    local_runfiles = _build_sonar_project_properties(ctx, ctx.outputs.sq_properties, 'sq_project')
+    
     return [DefaultInfo(
         runfiles = local_runfiles,
     )]
