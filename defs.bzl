@@ -27,6 +27,13 @@ TargetInfo = provider(
     }
 )
 
+SqProjectInfo = provider(
+    fields = {
+        "srcs": "main sources",
+        "test_srcs": "test sources",
+    }
+)
+
 def _test_targets_aspect_impl(target, ctx):
     transitive = []
     direct = []
@@ -124,6 +131,34 @@ def _get_java_files(java_targets):
 def _test_report_path(parent_path, test_target):
     return parent_path + "bazel-testlogs/" + test_target.package + "/" + test_target.name
 
+_sonarqube_template = """
+#!/bin/bash
+
+set -e
+
+echo 'Dereferencing bazel runfiles symlinks for accurate SCM resolution...'
+
+for f in {srcs} {test_srcs}
+do
+    mkdir -p $(dirname orig/$f)
+    mv $f orig/$f
+    cp -L orig/$f $f
+done
+
+echo '... done.'
+
+{sonar_scanner} ${{1+"$@"}} -Dproject.settings={sq_properties_file}
+
+echo 'Restoring original bazel runfiles symlinks...'
+for f in {srcs} {test_srcs}
+do
+    rm $f
+    mv orig/$f $f
+done
+rm -rf orig
+echo '... done.'
+"""
+
 def _sonarqube_impl(ctx):
     sq_properties_file = ctx.actions.declare_file("sonar-project.properties")
 
@@ -133,15 +168,33 @@ def _sonarqube_impl(ctx):
     for module in ctx.attr.modules.keys():
         module_runfiles = module_runfiles.merge(module[DefaultInfo].default_runfiles)
 
+    src_paths=[]
+    for t in ctx.attr.srcs:
+        for f in t[DefaultInfo].files.to_list():
+            src_paths.append(f.short_path)
+
+    test_src_paths=[]
+    for t in ctx.attr.test_srcs:
+        for f in t[DefaultInfo].files.to_list():
+            test_src_paths.append(f.short_path)
+
+    for module in ctx.attr.modules.keys():
+        for t in module[SqProjectInfo].srcs:
+            for f in t[DefaultInfo].files.to_list():
+                src_paths.append(f.short_path)
+
+        for t in module[SqProjectInfo].test_srcs:
+            for f in t[DefaultInfo].files.to_list():
+                test_src_paths.append(f.short_path)
+
     ctx.actions.write(
         output = ctx.outputs.executable,
-        content = "\n".join([
-            "#!/bin/bash",
-            "echo 'Dereferencing bazel runfiles symlinks for accurate SCM resolution...'",
-            "for f in $(find $(dirname %s) -type l); do sed -i '' $f; done" % sq_properties_file.short_path,
-            "echo '... done.'",
-            "exec %s $@ -Dproject.settings=%s" % (ctx.executable.sonar_scanner.short_path, sq_properties_file.short_path),
-        ]),
+        content = _sonarqube_template.format(
+            sq_properties_file=sq_properties_file.short_path,
+            sonar_scanner = ctx.executable.sonar_scanner.short_path,
+            srcs = ' '.join(src_paths),
+            test_srcs = ' '.join(test_src_paths),
+        ),
         is_executable = True,
     )
 
@@ -268,6 +321,9 @@ def _sq_project_impl(ctx):
 
     return [DefaultInfo(
         runfiles = local_runfiles,
+    ), SqProjectInfo(
+        srcs = ctx.attr.srcs,
+        test_srcs = ctx.attr.test_srcs,
     )]
 
 _sq_project = rule(
