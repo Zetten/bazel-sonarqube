@@ -24,14 +24,14 @@ def sonarqube_coverage_generator_binary(name = None):
 TargetInfo = provider(
     fields = {
         "deps": "depset of targets",
-    }
+    },
 )
 
 SqProjectInfo = provider(
     fields = {
         "srcs": "main sources",
         "test_srcs": "test sources",
-    }
+    },
 )
 
 def _test_targets_aspect_impl(target, ctx):
@@ -41,23 +41,23 @@ def _test_targets_aspect_impl(target, ctx):
     if ctx.rule.kind.endswith("_test"):
         direct.append(target)
 
-    if hasattr(ctx.rule.attr, 'tests'):
+    if hasattr(ctx.rule.attr, "tests"):
         for dep in ctx.rule.attr.tests:
             transitive.append(dep[TargetInfo].deps)
 
-    return TargetInfo(deps=depset(direct=direct, transitive=transitive))
+    return TargetInfo(deps = depset(direct = direct, transitive = transitive))
 
 # This aspect is for collecting test targets from test_suite rules
 # to save some duplication in the BUILD files.
 test_targets_aspect = aspect(
     implementation = _test_targets_aspect_impl,
-    attr_aspects = [ 'tests' ],
+    attr_aspects = ["tests"],
 )
 
 def _build_sonar_project_properties(ctx, sq_properties_file, rule):
     module_path = ctx.build_file_path.replace("/BUILD.bazel", "/").replace("/BUILD", "/")
     depth = len(module_path.split("/")) - 1
-    if rule == 'sq_project':
+    if rule == "sq_project":
         parent_path = "../" * depth
     else:
         parent_path = ""
@@ -68,7 +68,7 @@ def _build_sonar_project_properties(ctx, sq_properties_file, rule):
 
     if hasattr(ctx.attr, "test_targets") and ctx.attr.test_targets and hasattr(ctx.attr, "test_reports") and ctx.attr.test_reports and ctx.files.test_reports:
         test_reports_path = module_path + "test-reports"
-        if rule == 'sq_project':
+        if rule == "sq_project":
             local_test_reports_path = module_path + "test-reports"
         else:
             local_test_reports_path = "test-reports"
@@ -132,7 +132,11 @@ def _build_sonar_project_properties(ctx, sq_properties_file, rule):
 def _get_java_files(java_targets):
     return {
         "output_jars": depset(direct = [j.class_jar for t in java_targets for j in t[JavaInfo].outputs.jars]),
-        "deps_jars": depset(transitive = [t[JavaInfo].transitive_deps for t in java_targets] + [t[JavaInfo].transitive_runtime_deps for t in java_targets]),
+        "deps_jars": depset(
+            transitive =
+                [t[JavaInfo].transitive_compile_time_jars for t in java_targets] +
+                [t[JavaInfo].transitive_runtime_jars for t in java_targets],
+        ),
     }
 
 def _test_report_path(parent_path, test_target):
@@ -169,18 +173,18 @@ echo '... done.'
 def _sonarqube_impl(ctx):
     sq_properties_file = ctx.actions.declare_file("sonar-project.properties")
 
-    local_runfiles = _build_sonar_project_properties(ctx, sq_properties_file, 'sonarqube')
+    local_runfiles = _build_sonar_project_properties(ctx, sq_properties_file, "sonarqube")
 
     module_runfiles = ctx.runfiles(files = [])
     for module in ctx.attr.modules.keys():
         module_runfiles = module_runfiles.merge(module[DefaultInfo].default_runfiles)
 
-    src_paths=[]
+    src_paths = []
     for t in ctx.attr.srcs:
         for f in t[DefaultInfo].files.to_list():
             src_paths.append(f.short_path)
 
-    test_src_paths=[]
+    test_src_paths = []
     for t in ctx.attr.test_srcs:
         for f in t[DefaultInfo].files.to_list():
             test_src_paths.append(f.short_path)
@@ -197,10 +201,10 @@ def _sonarqube_impl(ctx):
     ctx.actions.write(
         output = ctx.outputs.executable,
         content = _sonarqube_template.format(
-            sq_properties_file=sq_properties_file.short_path,
+            sq_properties_file = sq_properties_file.short_path,
             sonar_scanner = ctx.executable.sonar_scanner.short_path,
-            srcs = ' '.join(src_paths),
-            test_srcs = ' '.join(test_src_paths),
+            srcs = " ".join(src_paths),
+            test_srcs = " ".join(test_src_paths),
         ),
         is_executable = True,
     )
@@ -208,7 +212,6 @@ def _sonarqube_impl(ctx):
     return [DefaultInfo(
         runfiles = ctx.runfiles(files = [ctx.executable.sonar_scanner] + ctx.files.scm_info).merge(ctx.attr.sonar_scanner[DefaultInfo].default_runfiles).merge(local_runfiles).merge(module_runfiles),
     )]
-
 
 _COMMON_ATTRS = dict(dict(), **{
     "project_key": attr.string(mandatory = True),
@@ -218,7 +221,7 @@ _COMMON_ATTRS = dict(dict(), **{
     "targets": attr.label_list(default = []),
     "modules": attr.label_keyed_string_dict(default = {}),
     "test_srcs": attr.label_list(allow_files = True, default = []),
-    "test_targets": attr.label_list(default = [], aspects = [ test_targets_aspect ]),
+    "test_targets": attr.label_list(default = [], aspects = [test_targets_aspect]),
     "test_reports": attr.label_list(allow_files = True, default = []),
     "sq_properties_template": attr.label(allow_single_file = True, default = "@bazel_sonarqube//:sonar-project.properties.tpl"),
     "sq_properties": attr.output(),
@@ -320,12 +323,12 @@ def sonarqube(
         sq_properties = "sonar-project.properties",
         tags = tags,
         visibility = visibility,
-        **kwargs,
+        **kwargs
     )
 
 def _sq_project_impl(ctx):
-    local_runfiles = _build_sonar_project_properties(ctx, ctx.outputs.sq_properties, 'sq_project')
-    
+    local_runfiles = _build_sonar_project_properties(ctx, ctx.outputs.sq_properties, "sq_project")
+
     return [DefaultInfo(
         runfiles = local_runfiles,
     ), SqProjectInfo(
@@ -407,5 +410,5 @@ def sq_project(
         sq_properties = "sonar-project.properties",
         tags = tags,
         visibility = visibility,
-        **kwargs,
+        **kwargs
     )
