@@ -29,3 +29,7 @@ The usage pattern is similar to the single case except it limits the scope of th
 
 1. `bazel coverage //subproject-with-separate-sonarqube/...`
 2. `bazel run //subproject-with-separate-sonarqube:sonarqube`
+
+# Example integrating bazel_sonarqube with bzlmod
+
+There is also a very simple iOS app example written in swift which demonstrates how to use bazel_sonarqube with [bzlmod](https://docs.bazel.build/versions/5.1.0/bzlmod.html).

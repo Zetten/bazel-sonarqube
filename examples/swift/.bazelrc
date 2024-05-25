@@ -1,0 +1,41 @@
+# Enable Bzlmod for every Bazel command
+common --enable_bzlmod
+
+## BUILD
+
+# https://bazel.build/reference/command-line-reference#flag--incompatible_strict_action_env
+build --incompatible_strict_action_env
+
+# Disable the worker, which has sandboxing disabled by default, which can hide
+# issues with non-hermetic bugs.
+build --spawn_strategy=sandboxed,local
+build --worker_sandboxing=true
+
+#build --incompatible_disallow_empty_glob
+
+build --features=swift.use_global_module_cache
+
+# Enable indexing while building.
+build --features swift.use_global_index_store
+build --features swift.index_while_building
+
+## TEST
+
+# `bazel test` tries to build everything also by default, so skip that so the
+# *_library targets in examples/... aren't built (and fail since they are
+# platform specific).
+test --build_tests_only
+
+# Show detailed errors for test failures
+test --test_output=errors
+
+# We only want source files in test coverage reports, not tests themselves.
+test --instrumentation_filter="^//modules/API:APILib"
+
+# Use llvm-cov instead of gcov (default).
+coverage --experimental_use_llvm_covmap
+coverage --collect_code_coverage
+coverage --combined_report=lcov
+coverage --coverage_report_generator=@bazel_sonarqube//:sonarqube_coverage_generator
+# Work around the Bazel issue with paths that contain whitespaces.
+coverage --experimental_inprocess_symlink_creation

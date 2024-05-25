@@ -1,0 +1,67 @@
+load("@build_bazel_rules_apple//apple:ios.bzl", "ios_application")
+load("@build_bazel_rules_apple//apple:versioning.bzl", "apple_bundle_version")
+load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
+load("//tools:shared.bzl", "app_info", "versions")
+
+# Version
+
+apple_bundle_version(
+    name = "Version",
+    build_version = "0.0.1",
+    short_version_string = "1.0",
+)
+
+# Code
+filegroup(
+    name = "srcs",
+    srcs = glob(["source/**/*.swift"]),
+    visibility = ["//visibility:public"],
+)
+
+swift_library(
+    name = "app.library",
+    srcs = glob(["source/**/*.swift"]),
+    data = [":PreviewContent"],
+    module_name = "app",
+    deps = [
+        "//modules/API:APILib",
+    ],
+)
+
+# Packaging
+
+filegroup(
+    name = "PreviewContent",
+    srcs = glob(["PreviewContent/**"]),
+)
+
+ios_application(
+    name = "app",
+    app_icons = glob(["Assets/Assets.xcassets/AppIcon.appiconset/**"]),
+    bundle_id = app_info.bundle_id,
+    bundle_name = app_info.bundle_name,
+    entitlements = "ios app.entitlements",
+    executable_name = app_info.executable_name,
+    families = [
+        "iphone",
+        "ipad",
+    ],
+    infoplists = [":Info.plist"],
+    minimum_os_version = versions.minimum_ios_version,
+    resources = glob(
+        [
+            "Assets/Assets.xcassets/**",
+        ],
+        exclude = ["Assets/Assets.xcassets/AppIcon.appiconset/**"],
+    ),
+    # Add localizable assets here.
+    # strings = glob(["*.lproj/Localizable.strings"]),
+    version = ":Version",
+    visibility = [
+        "//:__subpackages__",
+        "@rules_xcodeproj//xcodeproj:generated",
+    ],
+    deps = [
+        ":app.library",
+    ],
+)
