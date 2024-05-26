@@ -1,0 +1,47 @@
+load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
+load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
+load("//tools:shared.bzl", "versions")
+
+# Code
+
+filegroup(
+    name = "sources",
+    srcs = glob(["API/*.swift"]),
+    visibility = ["//visibility:public"],
+)
+
+swift_library(
+    name = "APILib",
+    srcs = [":sources"],
+    module_name = "API",
+    visibility = ["//modules:default_library_visibility"],
+    deps = [
+        "//modules/Models:ModelsLib",
+    ],
+)
+
+# Tests
+
+filegroup(
+    name = "testSources",
+    srcs = glob(["Tests/*.swift"]),
+    visibility = ["//visibility:public"],
+)
+
+swift_library(
+    name = "APITestsLib",
+    testonly = True,
+    srcs = [":testSources"],
+    module_name = "APITests",
+    deps = [
+        ":APILib",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+ios_unit_test(
+    name = "APITests",
+    minimum_os_version = versions.minimum_ios_version,
+    visibility = ["//visibility:public"],
+    deps = [":APITestsLib"],
+)

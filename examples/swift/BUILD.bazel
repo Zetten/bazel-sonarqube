@@ -1,0 +1,79 @@
+load("@bazel_sonarqube//:defs.bzl", "sonarqube")
+
+# Generating Sonar coverage report
+filegroup(
+    name = "test_reports",
+    srcs = glob(["bazel-testlogs/**/test.xml"], allow_empty = True),
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "coverage_report",
+    srcs = ["bazel-out/_coverage/_coverage_report.dat"],
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "git",
+    srcs = glob([".git/**"], exclude = [".git/**/*[*]"]),
+    tags = ["manial"],
+)
+
+sonarqube(
+    name = "sq",
+    srcs = ["//modules/API:sources"],
+    project_key = "your_sonar_project_key",
+    project_name = "Bazel-SwiftUI-template",
+    test_srcs = ["//modules/API:testSources"],
+    test_targets = ["//modules/API:APITestsLib"],
+    sq_properties_template = "sonar-project.properties.tpl",
+    test_reports = [":test_reports"],
+    coverage_report = ":coverage_report",
+    scm_info = [":git"],
+    testonly = True,
+)
+
+load(
+    "@rules_xcodeproj//xcodeproj:defs.bzl",
+    "top_level_target",
+    "xcodeproj",
+)
+
+# Xcode
+
+xcodeproj(
+    name = "xcodeproj",
+    project_name = "App",
+    top_level_targets = [
+        top_level_target(
+            "//app",
+            target_environments = ["simulator"],
+        ),
+        top_level_target(
+            "//modules/API:APITests",
+            target_environments = ["simulator"],
+        ),
+        top_level_target(
+            "//modules/Models:ModelsTests",
+            target_environments = ["simulator"],
+        ),
+    ],
+)
+
+# tools
+
+genrule(
+    name = "lint",
+    srcs = [],
+    outs = ["lint.sh"],
+    cmd = """
+echo "set -e" > "$@"
+echo "./$(location @buildifier_prebuilt//:buildifier) -lint fix -mode fix -r \\$$BUILD_WORKSPACE_DIRECTORY" >> "$@"
+echo "./$(location @SwiftLint//:swiftlint) --fix \\$$BUILD_WORKSPACE_DIRECTORY" >> "$@"
+""",
+    executable = True,
+    tools = [
+        "@SwiftLint//:swiftlint",
+        "@buildifier_prebuilt//:buildifier",
+    ],
+)
