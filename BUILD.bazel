@@ -18,17 +18,6 @@ exports_files([
 
 sonarqube_coverage_generator_binary()
 
-# This re-exports the java_binary, to ensure it gets built with runfiles for the host configuration
-genrule(
-    name = "sonarqube_coverage_generator",
-    outs = ["coverage.launcher"],
-    cmd = "ln -snf $$(readlink $(location :SonarQubeCoverageGenerator)) $@",
-    executable = 1,
-    tags = ["no-cache"],  # successful execution even when --remote_cache is involved
-    tools = [":SonarQubeCoverageGenerator"],
-    visibility = ["//visibility:public"],
-)
-
 alias(
     name = "sonar_scanner",
     actual = "@org_sonarsource_scanner_cli_sonar_scanner_cli//:sonar_scanner",

@@ -12,7 +12,7 @@ def sonarqube_coverage_generator_binary(name = None):
         deps = ["@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:all_lcov_merger_lib"]
 
     native.java_binary(
-        name = "SonarQubeCoverageGenerator",
+        name = "sonarqube_coverage_generator",
         srcs = [
             "src/main/java/com/google/devtools/coverageoutputgenerator/SonarQubeCoverageGenerator.java",
             "src/main/java/com/google/devtools/coverageoutputgenerator/SonarQubeCoverageReportPrinter.java",
