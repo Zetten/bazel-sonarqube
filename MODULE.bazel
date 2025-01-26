@@ -1,15 +1,15 @@
 module(
     name = "bazel_sonarqube",
-    version = "1.0.2",
+    version = "1.0.3",
     compatibility_level = 1,
     repo_name = "bazel_sonarqube",
 )
 
-bazel_dep(name = "bazel_skylib", version = "1.6.1", repo_name = "bazel_skylib")
+bazel_dep(name = "bazel_skylib", version = "1.7.1", repo_name = "bazel_skylib")
 
 bazel_dep(
     name = "stardoc",
-    version = "0.6.2",
+    version = "0.7.2",
     dev_dependency = True,
     repo_name = "io_bazel_stardoc",
 )
