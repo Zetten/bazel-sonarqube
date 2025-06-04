@@ -56,8 +56,10 @@ test_targets_aspect = aspect(
 )
 
 def _strip_module_prefix(path, fallback_parent_path):
-    if "+/" in path:
+    if "+/" in path:  # Bazel 8.x
         return path.split("+/", 1)[1]
+    if "~/" in path:  # Bazel 7.x
+        return path.split("~/", 1)[1]
     return fallback_parent_path + path
 
 def _build_sonar_project_properties(ctx, sq_properties_file, rule):
