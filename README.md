@@ -21,7 +21,21 @@ specific Bazel versions, otherwise the latest should work with the latest Bazel.
 
 ## Setup
 
-The included rules require some dependencies. In your WORKSPACE:
+### With bzlmod (Bazel 7 and above)
+
+If you are starting a new project, or your project is already using Bazel 7 and
+above, we recommend using [`bzlmod`](https://bazel.build/external/overview).
+
+Add the following to your `MODULE.bazel` file, setting the `version` to the latest one
+available on [Bazel Central Registry](https://registry.bazel.build/modules/bazel_sonarqube):
+
+```python
+bazel_dep(name = "bazel_sonarqube", version = "...")
+```
+
+### With WORKSPACE file (legacy)
+
+The included rules require some dependencies. In your `WORKSPACE`:
 
 ```python
 load("@bazel_sonarqube//:repositories.bzl", "bazel_sonarqube_repositories")
