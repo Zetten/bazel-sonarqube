@@ -3,7 +3,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 def bazel_sonarqube_repositories(
         bazel_version_repository_name = "bazel_version",
         sonar_scanner_cli_version = "5.0.2.4997",
-        sonar_scanner_cli_sha256 = "2f10fe6ac36213958201a67383c712a587e3843e32ae1edf06f01062d6fd147",
+        sonar_scanner_cli_sha256 = "2f10fe6ac36213958201a67383c712a587e3843e32ae1edf06f01062d6fd1407",
         bazel_skylib_version = "1.8.1",
         bazel_skylib_sha256 = "51b5105a760b353773f904d2bbc5e664d0987fbaf22265164de65d43e910d8ac"):
     http_archive(
