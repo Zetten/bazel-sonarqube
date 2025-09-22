@@ -32,6 +32,7 @@ SqProjectInfo = provider(
     fields = {
         "srcs": "main sources",
         "test_srcs": "test sources",
+        "sq_properties": "sonarqube properties file",
     },
 )
 
@@ -55,13 +56,25 @@ test_targets_aspect = aspect(
     attr_aspects = ["tests"],
 )
 
+def _strip_module_prefix(path, fallback_parent_path):
+    if "+/" in path:  # Bazel 8.x
+        return path.split("+/", 1)[1]
+    if "~/" in path:  # Bazel 7.x
+        return path.split("~/", 1)[1]
+    return fallback_parent_path + path
+
 def _build_sonar_project_properties(ctx, sq_properties_file, rule):
     module_path = ctx.build_file_path.replace("/BUILD.bazel", "/").replace("/BUILD", "/")
     depth = len(module_path.split("/")) - 1
+    if depth == 0 and rule == "sq_project":
+        # Having a sq_project that is at the root level seems odd.  This is
+        # probably a bazel module that gets pulled in elsewhere.
+        depth = 1
     if rule == "sq_project":
         parent_path = "../" * depth
     else:
         parent_path = ""
+
 
     # SonarQube requires test reports to be named like TEST-foo.xml, so we step
     # through `test_targets` to find the matching `test_reports` values, and
@@ -113,8 +126,8 @@ def _build_sonar_project_properties(ctx, sq_properties_file, rule):
         substitutions = {
             "{PROJECT_KEY}": ctx.attr.project_key,
             "{PROJECT_NAME}": ctx.attr.project_name,
-            "{SOURCES}": ",".join([parent_path + f.short_path for f in ctx.files.srcs]),
-            "{TEST_SOURCES}": ",".join([parent_path + f.short_path for f in ctx.files.test_srcs]),
+            "{SOURCES}": ",".join([_strip_module_prefix(f.short_path, parent_path) for f in ctx.files.srcs]),
+            "{TEST_SOURCES}": ",".join([_strip_module_prefix(f.short_path, parent_path) for f in ctx.files.test_srcs]),
             "{SOURCE_ENCODING}": ctx.attr.source_encoding,
             "{JAVA_BINARIES}": ",".join([parent_path + j.short_path for j in java_files["output_jars"].to_list()]),
             "{JAVA_LIBRARIES}": ",".join([parent_path + j.short_path for j in java_files["deps_jars"].to_list()]),
@@ -150,11 +163,43 @@ set -e
 
 echo 'Dereferencing bazel runfiles symlinks for accurate SCM resolution...'
 
-for f in {srcs} {test_srcs}
+declare -A srcs_array=({srcs})
+declare -A test_srcs_array=({test_srcs})
+
+dereference() {{
+  f=$1
+  local -n a=$2
+  if [ ${{a[$f]}} == "." ]; then
+    g=$f
+  else
+    g=$(echo $f | cut -d/ -f3-)
+  fi
+  mkdir -p $(dirname orig/${{a[$f]}}/$g)
+  mkdir -p $(dirname ${{a[$f]}}/$g)
+  mv $f orig/${{a[$f]}}/$g
+  cp -L orig/${{a[$f]}}/$g ${{a[$f]}}/$g
+}}
+
+restore() {{
+  f=$1
+  local -n a=$2
+  if [ ${{a[$f]}} == "." ]; then
+    g=$f
+  else
+    g=$(echo $f | cut -d/ -f3-)
+  fi
+  rm -f ${{a[$f]}}/$g
+  mv orig/${{a[$f]}}/$g $f
+}}
+
+for f in ${{!srcs_array[@]}}
 do
-    mkdir -p $(dirname orig/$f)
-    mv $f orig/$f
-    cp -L orig/$f $f
+  dereference $f srcs_array
+done
+
+for f in ${{!test_srcs_array[@]}}
+do
+  dereference $f test_srcs_array
 done
 
 echo '... done.'
@@ -162,12 +207,17 @@ echo '... done.'
 {sonar_scanner} ${{1+"$@"}} -Dproject.settings={sq_properties_file}
 
 echo 'Restoring original bazel runfiles symlinks...'
-for f in {srcs} {test_srcs}
+
+for f in ${{!srcs_array[@]}}
 do
-    rm $f
-    mv orig/$f $f
+    restore $f srcs_array
+done
+for f in ${{!test_srcs_array[@]}}
+do
+    restore $f test_srcs_array
 done
 rm -rf orig
+
 echo '... done.'
 """
 
@@ -180,32 +230,33 @@ def _sonarqube_impl(ctx):
     for module in ctx.attr.modules.keys():
         module_runfiles = module_runfiles.merge(module[DefaultInfo].default_runfiles)
 
-    src_paths = []
+    src_paths = {}
     for t in ctx.attr.srcs:
         for f in t[DefaultInfo].files.to_list():
-            src_paths.append(f.short_path)
+            src_paths[f.short_path] = "."
 
-    test_src_paths = []
+    test_src_paths = {}
     for t in ctx.attr.test_srcs:
         for f in t[DefaultInfo].files.to_list():
-            test_src_paths.append(f.short_path)
-
-    for module in ctx.attr.modules.keys():
+            test_src_paths[f.short_path] = "."
+                                                                                                   
+    for module, relative_dir in ctx.attr.modules.items():
+        src_paths[module[SqProjectInfo].sq_properties.short_path] = relative_dir
         for t in module[SqProjectInfo].srcs:
             for f in t[DefaultInfo].files.to_list():
-                src_paths.append(f.short_path)
+                src_paths[f.short_path] = relative_dir
 
         for t in module[SqProjectInfo].test_srcs:
             for f in t[DefaultInfo].files.to_list():
-                test_src_paths.append(f.short_path)
+                test_src_paths[f.short_path] = relative_dir
 
     ctx.actions.write(
         output = ctx.outputs.executable,
         content = _sonarqube_template.format(
             sq_properties_file = sq_properties_file.short_path,
             sonar_scanner = ctx.executable.sonar_scanner.short_path,
-            srcs = " ".join(src_paths),
-            test_srcs = " ".join(test_src_paths),
+            srcs = " ".join(['["{}"]="{}"'.format(path, relative_dir) for (path, relative_dir) in src_paths.items()]),
+            test_srcs = " ".join(['["{}"]="{}"'.format(path, relative_dir) for (path, relative_dir) in test_src_paths.items()]),
         ),
         is_executable = True,
     )
@@ -335,6 +386,7 @@ def _sq_project_impl(ctx):
     ), SqProjectInfo(
         srcs = ctx.attr.srcs,
         test_srcs = ctx.attr.test_srcs,
+        sq_properties = ctx.outputs.sq_properties,
     )]
 
 _sq_project = rule(
