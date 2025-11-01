@@ -5,14 +5,13 @@ module(
     repo_name = "bazel_sonarqube",
 )
 
-bazel_dep(name = "bazel_skylib", version = "1.7.1", repo_name = "bazel_skylib")
-bazel_dep(name = "rules_java", version = "8.11.0")
+bazel_dep(name = "bazel_skylib", version = "1.8.1")
+bazel_dep(name = "rules_java", version = "8.16.1")
 
 bazel_dep(
     name = "stardoc",
-    version = "0.7.2",
-    dev_dependency = True,
-    repo_name = "io_bazel_stardoc",
+    version = "0.8.0",
+    dev_dependency = True
 )
 
 non_module_dependencies = use_extension("//:extensions.bzl", "non_module_dependencies")
