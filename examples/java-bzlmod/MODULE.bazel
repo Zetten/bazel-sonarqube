@@ -1,0 +1,21 @@
+###############################################################################
+# Bazel now uses Bzlmod by default to manage external dependencies.
+# Please consider migrating your external dependencies from WORKSPACE to MODULE.bazel.
+#
+# For more details, please check https://github.com/bazelbuild/bazel/issues/18958
+###############################################################################
+
+bazel_dep(name = "bazel_sonarqube", version = "1.0.3", dev_dependency = True)
+non_module_dependencies = use_extension("@bazel_sonarqube//:extensions.bzl", "non_module_dependencies")
+# TODO This needs to be uncommented after 1.0.5 release
+# non_module_dependencies.settings(
+#     sonar_scanner_cli_version = "7.2.0.5079",
+#     sonar_scanner_cli_sha256 = "30d80b37c8f4be1254b6c43ec8c64291798d97a710c28475958b5e2f10809fe1",
+# )
+use_repo(non_module_dependencies, "org_sonarsource_scanner_cli_sonar_scanner_cli")
+
+bazel_dep(name = "rules_jvm_external", version = "6.8")
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+
+use_repo(maven, "maven")

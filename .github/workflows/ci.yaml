@@ -1,0 +1,56 @@
+name: CI
+
+# Controls when the action will run.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Cancel previous actions from the same PR: https://stackoverflow.com/a/72408109
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: bazel-contrib/setup-bazel@0.15.0
+
+      - name: sonar canner build
+        run: |
+          bazel build //:sonar_scanner
+          bazel build //:sonarqube_coverage_generator
+
+      # TODO Building //docs:docs has missing dependencies to rules_java
+      # and it is failing
+      # - name: bazel aquery
+      #   run: |
+      #     bazel aquery ...
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        folder:
+          - examples/java-workspace
+          - examples/java-bzlmod
+    steps:
+      - uses: actions/checkout@v5
+      - uses: bazel-contrib/setup-bazel@0.15.0
+
+      - name: test coverage
+        working-directory: ${{ matrix.folder }}
+        run: |
+          bazel coverage //...
+          bazel build //:sonarqube
+
+      - name: sonarqube report
+        working-directory: ${{ matrix.folder }}
+        # TODO We don't have sonar server to send scan results
+        continue-on-error: True
+        run: |
+          bazel run //:sonarqube
+          

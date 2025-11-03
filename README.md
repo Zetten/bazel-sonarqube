@@ -30,7 +30,26 @@ Add the following to your `MODULE.bazel` file, setting the `version` to the late
 available on [Bazel Central Registry](https://registry.bazel.build/modules/bazel_sonarqube):
 
 ```python
-bazel_dep(name = "bazel_sonarqube", version = "...")
+bazel_dep(name = "bazel_sonarqube", version = "...", dev_dependency = True)
+```
+
+#### Change version of the sonar_scanner_cli
+
+All possible `sonar_scanner_cli` versions could be found [on github page](https://github.com/SonarSource/sonar-scanner-cli/releases).
+Together with version you must provide [SHA-256](https://en.wikipedia.org/wiki/SHA-2).
+The easiest way to get `SHA-256` is run command `bazel aquery ...`.
+It will display error with desired and current hash.
+
+Example of usage:
+
+```python
+bazel_dep(name = "bazel_sonarqube", version = "...", dev_dependency = True)
+non_module_dependencies = use_extension("@bazel_sonarqube//:extensions.bzl", "non_module_dependencies")
+non_module_dependencies.settings(
+    sonar_scanner_cli_version = "6.0.0.4432",
+    sonar_scanner_cli_sha256 = "965a18c438a213aa2167b51c793116987bc2a9df9ad245c8e02d3ab3e54022e7",
+)
+use_repo(non_module_dependencies, "org_sonarsource_scanner_cli_sonar_scanner_cli")
 ```
 
 ### With WORKSPACE file (legacy)
@@ -72,9 +91,9 @@ To execute a SonarQube analysis of a Bazel project, two rules are provided:
 `sonarqube` and `sq_project`.
 
 The `sonarqube` rule creates an executable target which will generate SonarQube
-sonar-project.properties configuration files, and execute the CLI scanner.
+`sonar-project.properties` configuration files, and execute the CLI scanner.
 
-The `sq_project` rule provides the generation of sonar-project.properties
+The `sq_project` rule provides the generation of `sonar-project.properties`
 configuration, and can be used to create sub-module configurations to be
 included in a `sonarqube` target.
 
@@ -94,14 +113,12 @@ filegroup(
     name = "coverage_report",
     srcs = ["bazel-out/_coverage/_coverage_report.dat"], # Created manually
     tags = ["manual"],
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "test_reports",
     srcs = glob(["bazel-testlogs/**/test.xml"]), # Created manually
     tags = ["manual"],
-    visibility = ["//visibility:public"],
 )
 
 load("@bazel_sonarqube//:defs.bzl", "sonarqube")
@@ -127,6 +144,10 @@ sonarqube(
     testonly = True,
 )
 ```
+
+The `name` attribute is target name. It is optional attribute, needed when
+multiple `sonarqube` is used in the same `BUILD` package.
+If not specifie `sonarscan` target name is used.
 
 The `srcs` and `test_srcs` attributes may refer to individual files or
 `filegroup` targets.

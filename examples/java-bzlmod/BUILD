@@ -5,14 +5,12 @@ filegroup(
         exclude = [".git/**/*[*"],  # gitk creates temp files with []
     ),
     tags = ["manual"],
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "coverage_report",
     srcs = ["bazel-out/_coverage/_coverage_report.dat"],  # Created manually
     tags = ["manual"],
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
