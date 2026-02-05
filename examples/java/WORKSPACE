@@ -27,7 +27,12 @@ load("@rules_jvm_external//:specs.bzl", "maven")
 
 maven_install(
     artifacts = [
-        maven.artifact("junit", "junit", "4.12", testonly=True)
+        maven.artifact(
+            "junit",
+            "junit",
+            "4.12",
+            testonly = True,
+        ),
     ],
     repositories = [
         "https://jcenter.bintray.com/",

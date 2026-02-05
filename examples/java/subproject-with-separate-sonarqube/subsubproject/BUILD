@@ -2,8 +2,9 @@ load("@bazel_sonarqube//:defs.bzl", "sq_project")
 
 sq_project(
     name = "sq_project",
+    testonly = True,
     srcs = [
-        "//subproject-with-separate-sonarqube/subsubproject/src/main/java/com/separate/subsubproject:srcs", 
+        "//subproject-with-separate-sonarqube/subsubproject/src/main/java/com/separate/subsubproject:srcs",
     ],
     project_key = "com.example.separate:subsubproject",
     project_name = "My Project :: Sub-Project's sub project for separate sonarqube",
@@ -19,5 +20,4 @@ sq_project(
         "//subproject-with-separate-sonarqube/subsubproject/src/test/java/com/separate/subsubproject:SeparateSubSubAppTest",
     ],
     visibility = ["//visibility:public"],
-    testonly = True,
 )

@@ -1,3 +1,5 @@
+load("@bazel_sonarqube//:defs.bzl", "sonarqube")
+
 filegroup(
     name = "git",
     srcs = glob(
@@ -22,10 +24,9 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-load("@bazel_sonarqube//:defs.bzl", "sonarqube")
-
 sonarqube(
     name = "sonarqube",
+    testonly = True,
     srcs = [],
     coverage_report = ":coverage_report",
     modules = {
@@ -36,5 +37,4 @@ sonarqube(
     scm_info = [":git"],
     tags = ["manual"],
     targets = [],
-    testonly = True,
 )
