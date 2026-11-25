@@ -108,6 +108,10 @@ def _build_sonar_project_properties(ctx, sq_properties_file, rule):
 
     java_files = _get_java_files([t for t in ctx.attr.targets if t[JavaInfo]])
 
+    # SpotBugs (and SonarJava's classFilesToAnalyze) need directories of
+    # .class files, not jars: expand each output jar into a tree artifact.
+    class_dirs = _sq_classes_dirs(ctx, java_files["output_jars"].to_list())
+
     ctx.actions.expand_template(
         template = ctx.file.sq_properties_template,
         output = sq_properties_file,
@@ -117,7 +121,7 @@ def _build_sonar_project_properties(ctx, sq_properties_file, rule):
             "{SOURCES}": ",".join([parent_path + f.short_path for f in ctx.files.srcs]),
             "{TEST_SOURCES}": ",".join([parent_path + f.short_path for f in ctx.files.test_srcs]),
             "{SOURCE_ENCODING}": ctx.attr.source_encoding,
-            "{JAVA_BINARIES}": ",".join([parent_path + j.short_path for j in java_files["output_jars"].to_list()]),
+            "{JAVA_BINARIES}": ",".join([parent_path + d.short_path for d in class_dirs]),
             "{JAVA_LIBRARIES}": ",".join([parent_path + j.short_path for j in java_files["deps_jars"].to_list()]),
             "{MODULES}": ",".join(ctx.attr.modules.values()),
             "{TEST_REPORTS}": test_reports_path,
@@ -127,9 +131,25 @@ def _build_sonar_project_properties(ctx, sq_properties_file, rule):
     )
 
     return ctx.runfiles(
-        files = [sq_properties_file] + ctx.files.srcs + ctx.files.test_srcs + test_reports_runfiles + coverage_runfiles,
+        files = [sq_properties_file] + ctx.files.srcs + ctx.files.test_srcs + test_reports_runfiles + coverage_runfiles + class_dirs,
         transitive_files = depset(transitive = [java_files["output_jars"], java_files["deps_jars"]]),
     )
+
+def _sq_classes_dirs(ctx, jars):
+    dirs = []
+    for i, jar in enumerate(jars):
+        d = ctx.actions.declare_directory("%s_sq_classes/%d" % (ctx.label.name, i))
+        ctx.actions.run_shell(
+            inputs = [jar],
+            tools = [ctx.executable._zipper],
+            outputs = [d],
+            command = '"$1" x "$2" -d "$3"',
+            arguments = [ctx.executable._zipper.path, jar.path, d.path],
+            mnemonic = "SonarClassesDir",
+            progress_message = "Expanding %s for SonarQube" % jar.short_path,
+        )
+        dirs.append(d)
+    return dirs
 
 def _get_java_files(java_targets):
     return {
@@ -227,6 +247,11 @@ _COMMON_ATTRS = dict(dict(), **{
     "test_reports": attr.label_list(allow_files = True, default = []),
     "sq_properties_template": attr.label(allow_single_file = True, default = "@bazel_sonarqube//:sonar-project.properties.tpl"),
     "sq_properties": attr.output(),
+    "_zipper": attr.label(
+        default = "@bazel_tools//tools/zip:zipper",
+        executable = True,
+        cfg = "exec",
+    ),
 })
 
 _sonarqube = rule(
